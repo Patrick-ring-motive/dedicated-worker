@@ -25,8 +25,8 @@ void async function DedicatedWindow() {
         workerMessageMap.set(wmi, wmip);
         return wmi;
     }
-    const myWorker = new Worker(URL.createObjectURL(new Blob(['('+DedicatedWorker+')();'], { type: "text/javascript" })));
-
+    const myWorker = new Worker(URL.createObjectURL(new Blob(['(' + DedicatedWorker + ')();'], { type: "text/javascript" })));
+    myWorker.ready = new Promise((resolve) => { myWorker.resolve = resolve });
     async function processWorkerMessage(func, values) {
         let workerId = getWorkerMessageId();
         let workerFunction = func;
@@ -38,11 +38,16 @@ void async function DedicatedWindow() {
     }
     myWorker.onmessage = async function(e) {
         let workerId = e.data[0];
+        if (workerId == 'ready') {
+           // myWorker?.ready?.resolve(myWorker.resolve());
+            myWorker.resolve();
+            return
+        }
         let workerReturnValue = e.data[1];
         workerMessageMap.get(workerId).resolve(workerReturnValue);
-        console.log('Message received from worker', e.data);
+        //console.log('Message received from worker', e.data);
     }
-
+    await myWorker.ready;
     globalThis.spellFix = async function() {
         var n, a = [],
             walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
@@ -59,10 +64,10 @@ void async function DedicatedWindow() {
             }
             a.push(n);
             let ntext = n.textContent;
-            console.log(n.parentElement.tagName, ntext);
+           // console.log(n.parentElement.tagName, ntext);
             nwords = ntext.split(' ');
             nwords = await Promise.all(nwords.map(async x => {
-                if (/[^a-zA-Z]/.test(x)) {
+                if (/[^a-z]/.test(x)) {
                     return x;
                 }
                 if (x.length < 3) {
@@ -71,12 +76,14 @@ void async function DedicatedWindow() {
                 if (await processWorkerMessage('check', [x])) {
                     return x;
                 }
-                return (await processWorkerMessage('suggest', [x]))[0] ?? x
+                let y = await processWorkerMessage('suggest', [x]);
+                console.log(y);
+                return y[0] ?? x
             }));
             let nnext = nwords.join(' ');
             if (nnext == ntext) { continue; }
+            console.warn(ntext,'changing to',nnext);
             n.textContent = nnext;
-            console.log(n.textContent)
         };
         return a;
     }
@@ -101,22 +108,23 @@ async function DedicatedWorker() {
     async function fetchText() {
         return await (await fetch(...arguments)).text();
     }
-    globalThis.suggestions={};
-    globalThis.checks={};
+    globalThis.suggestions = {};
+    globalThis.checks = {};
     async function zfetchText() {
         try { return await fetchText(...arguments); } catch (e) { return e.message; }
     }
-    
+
     const typoCdn = 'https://cdn.jsdelivr.net/npm/typo-js@1.2.4/';
-    
+
     eval?.((await zfetchText(`${typoCdn}typo.min.js`)).replace('var Type', 'globalThis.Typo'));
     const [aff, dic] = await Promise.all([zfetchText(`${typoCdn}dictionaries/en_US/en_US.aff`),
     zfetchText(`${typoCdn}dictionaries/en_US/en_US.dic`)]);
     const dictionary = new Typo("en_US", aff, dic);
     console.log('asdf', dictionary.check(''));
+    postMessage(['ready']);
     let functions = {};
     self.onmessage = function(e) {
-        console.log('Worker: Message received from main script' + e.data);
+        //console.log('Worker: Message received from main script' + e.data);
         let currentFunction = functions[e.data[1]];
         if (currentFunction instanceof AsyncFunction) {
             async(async _ => postMessage([e.data[0], await currentFunction(...e.data[2])]));
@@ -126,7 +134,7 @@ async function DedicatedWorker() {
     }
     functions = {
         check: function(x) {
-            if(globalThis.checks[x]){
+            if (globalThis.checks[x]) {
                 return globalThis.checks[x];
             }
             const y = dictionary.check(x);
@@ -134,10 +142,11 @@ async function DedicatedWorker() {
             return y;
         },
         suggest: function(x) {
-            if(globalThis.suggestions[x]){
+            if (globalThis.suggestions[x]) {
                 return globalThis.suggestions[x];
             }
-            const y = dictionary.suggest(x);
+            let y = dictionary.suggest(x);
+            if((!functions.check(y[0]))||/[0-9]/.test(y[0])){y=[];}
             globalThis.suggestions[x] = y;
             return y;
         }
