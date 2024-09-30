@@ -25,7 +25,7 @@ void async function DedicatedWindow() {
         workerMessageMap.set(wmi, wmip);
         return wmi;
     }
-    const myWorker = new Worker(document?.currentScript?.src??URL.createObjectURL([document?.currentScript?.innerHTML.toString()], { type: "text/javascript" }));
+    const myWorker = new Worker(URL.createObjectURL(new Blob(['('+DedicatedWorker+')();'], { type: "text/javascript" })));
 
     async function processWorkerMessage(func, values) {
         let workerId = getWorkerMessageId();
@@ -83,7 +83,18 @@ void async function DedicatedWindow() {
     spellFix();
 }?.();
 
-void async function DedicatedWorker() {
+
+
+async function DedicatedWorker() {
+    globalThis.AsyncFunction = async function() { }.constructor;
+    globalThis.await = _ => _;
+    globalThis.async = async a => await a();
+
+    globalThis.sleep = (ms) => {
+        return new Promise((resolve) => {
+            setTimeout(resolve, ms);
+        });
+    };
     if (!self?.DedicatedWorkerGlobalScope) {
         return;
     }
@@ -131,4 +142,4 @@ void async function DedicatedWorker() {
             return y;
         }
     }
-}?.();
+}
