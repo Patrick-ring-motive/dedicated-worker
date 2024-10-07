@@ -16,18 +16,25 @@ void async function DedicatedWindow() {
         globalThis.workerMessageMap = new Map();
     }
 
-    function getWorkerMessageId() {
+    function getWorkerMessageId(timeout = 10000) {
         const workerMessageId = ('WorkerMessageId' + new Date().getTime() + "" + performance.now() + "" + Math.random()).replaceAll('.', '_');
         const workerMessagePromise = {};
         workerMessagePromise.promise = new Promise((resolve,reject) => {
             workerMessagePromise.resolve = resolve;
             workerMessagePromise.reject = reject;
         });
+        (async () => {
+            await sleep(timeout);
+            if(workerMessageMap.has(workerMessageId)){
+                workerMessagePromise?.reject?.('timeout');
+            }
+        })();
         workerMessageMap.set(workerMessageId, workerMessagePromise);
         return workerMessageId;
     }
     const myWorker = new Worker(URL.createObjectURL(new Blob(['(' + DedicatedWorker + ')();'], { type: "text/javascript" })));
-    myWorker.ready = new Promise((resolve) => { myWorker.resolve = resolve });
+    myWorker.ready = new Promise((resolve) => { myWorker.readyResolve = resolve });
+    myWorker.ready.catch((reason)=>myWorker.readyResolve(reason));
     async function processWorkerMessage(func, values) {
         const workerId = getWorkerMessageId();
         const workerFunction = func;
@@ -40,13 +47,11 @@ void async function DedicatedWindow() {
     myWorker.onmessage = async function(e) {
         const workerId = e.data[0];
         if (workerId == 'ready') {
-           // myWorker?.ready?.resolve(myWorker.resolve());
-            myWorker.resolve();
-            return
+            myWorker.readyResolve();
+            return;
         }
         const workerReturnValue = e.data[1];
         workerMessageMap.get(workerId).resolve(workerReturnValue);
-        //console.log('Message received from worker', e.data);
     }
     await myWorker.ready;
     globalThis.spellFix = async function() {
