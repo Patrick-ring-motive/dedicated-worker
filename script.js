@@ -29,22 +29,22 @@ void async function DedicatedWindow() {
     const myWorker = new Worker(URL.createObjectURL(new Blob(['(' + DedicatedWorker + ')();'], { type: "text/javascript" })));
     myWorker.ready = new Promise((resolve) => { myWorker.resolve = resolve });
     async function processWorkerMessage(func, values) {
-        let workerId = getWorkerMessageId();
-        let workerFunction = func;
+        const workerId = getWorkerMessageId();
+        const workerFunction = func;
         myWorker.postMessage([workerId, workerFunction, [...values]]);
-        let workerPromise = workerMessageMap.get(workerId).promise;
-        let workerReturnValue = await workerPromise;
-        setTimeout(X => workerMessageMap.delete(workerId), 100);
+        const workerPromise = workerMessageMap.get(workerId).promise;
+        const workerReturnValue = await workerPromise;
+        setTimeout(() => workerMessageMap.delete(workerId), 100);
         return workerReturnValue;
     }
     myWorker.onmessage = async function(e) {
-        let workerId = e.data[0];
+        const workerId = e.data[0];
         if (workerId == 'ready') {
            // myWorker?.ready?.resolve(myWorker.resolve());
             myWorker.resolve();
             return
         }
-        let workerReturnValue = e.data[1];
+        const workerReturnValue = e.data[1];
         workerMessageMap.get(workerId).resolve(workerReturnValue);
         //console.log('Message received from worker', e.data);
     }
