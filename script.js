@@ -17,13 +17,14 @@ void async function DedicatedWindow() {
     }
 
     function getWorkerMessageId() {
-        const wmi = ('WorkerMessageId' + new Date().getTime() + "" + performance.now() + "" + Math.random()).replaceAll('.', '_');
-        const wmip = {};
-        wmip.promise = new Promise((resolve) => {
-            wmip.resolve = resolve;
+        const workerMessageId = ('WorkerMessageId' + new Date().getTime() + "" + performance.now() + "" + Math.random()).replaceAll('.', '_');
+        const workerMessagePromise = {};
+        workerMessagePromise.promise = new Promise((resolve,reject) => {
+            workerMessagePromise.resolve = resolve;
+            workerMessagePromise.reject = reject;
         });
-        workerMessageMap.set(wmi, wmip);
-        return wmi;
+        workerMessageMap.set(workerMessageId, workerMessagePromise);
+        return workerMessageId;
     }
     const myWorker = new Worker(URL.createObjectURL(new Blob(['(' + DedicatedWorker + ')();'], { type: "text/javascript" })));
     myWorker.ready = new Promise((resolve) => { myWorker.resolve = resolve });
