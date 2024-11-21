@@ -12,17 +12,15 @@ void async function DedicatedWindow() {
     if (!self?.window?.Worker) {
         return;
     }
-    if (!globalThis.workerMessageMap) {
-        globalThis.workerMessageMap = new Map();
-    }
-
-    function getWorkerMessageId(timeout = 10000) {
-        const workerMessageId = ('WorkerMessageId' + new Date().getTime() + "" + performance.now() + "" + Math.random()).replaceAll('.', '_');
-        const workerMessagePromise = {};
-        workerMessagePromise.promise = new Promise((resolve,reject) => {
+    globalThis.workerMessageMap ??= new Map();
+    const getWorkerMessageId = function getWorkerMessageId(timeout = 10000) {
+    const workerMessageId = ('WorkerMessageId' + new Date().getTime() + "" + performance.now() + "" + Math.random()).replaceAll('.', '_');
+    const workerMessagePromise = {
+            promise : new Promise((resolve,reject) => {
             workerMessagePromise.resolve = resolve;
             workerMessagePromise.reject = reject;
-        });
+        })
+    };
         (async () => {
             await sleep(timeout);
             if(workerMessageMap.has(workerMessageId)){
@@ -117,7 +115,12 @@ async function DedicatedWorker() {
     globalThis.suggestions = {};
     globalThis.checks = {};
     async function zfetchText() {
-        try { return await fetchText(...arguments); } catch (e) { return e.message; }
+        try { 
+            return await fetchText(...arguments); 
+        } catch (e) { 
+            console.warn(e,...arguments);
+            return e.message; 
+        }
     }
 
     const typoCdn = 'https://cdn.jsdelivr.net/npm/typo-js@1.2.4/';
